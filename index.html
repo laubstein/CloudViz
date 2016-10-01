@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>CloudViz</title>
+  <style type="text/css" media="screen">
+    body {
+        overflow: hidden;
+    }
+
+    #editor {
+        margin: 0;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 50%;
+        left: 0;
+    }
+    #review {
+        margin: 0;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: 50%;
+        width: 50%;
+        overflow: scroll;
+    }
+    #status {
+        position: fixed;
+        bottom: 0;
+        display: block;
+        color: #FFF;
+        width: 0 auto;
+        z-index: 999;
+    }
+  </style>
+</head>
+<body>
+<pre id="editor"></pre>
+<div id="review" onclick="saveimage(this);" title="Save"></div>
+<div id="status"></div>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.5/ace.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.5/mode-dot.js"></script>
+<script type="text/javascript" src="https://www.gstatic.com/firebasejs/3.4.1/firebase.js"></script>
+<script type="text/javascript" src="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.min.js"></script>
+<script type="text/javascript" src="http://canvg.github.io/canvg/canvg.js"></script>
+
+<script>
+(function(document) {
+  window.URL = window.URL || window.webkitURL;
+  var blob = new Blob([
+      "importScripts('https://cdnjs.cloudflare.com/ajax/libs/viz.js/1.3.0/viz.js');" +
+      "self.onmessage = function(e) { " +
+      "  postMessage({" +
+      "      data: Viz(e.data.code, e.data.type), " +
+      "      type: e.data.type" +
+      "  })" +
+      "}"]);
+      divStatus = document.getElementById("status"),
+      t_status = -1,
+      img = new Image(),
+      alink = document.getElementById("alink"),
+      canvas = document.createElement("canvas"),
+      // Obtain a blob URL reference to our worker 'file'.
+      blobURL = window.URL.createObjectURL(blob),
+      worker = new Worker(blobURL),
+      config = {
+        apiKey: "AIzaSyCby0CsMzsKSG_cgJ1KLhPhHDkd0NZ5knQ",
+        authDomain: "cloudviz-56d7f.firebaseapp.com",
+        databaseURL: "https://cloudviz-56d7f.firebaseio.com",
+        storageBucket: "cloudviz-56d7f.appspot.com",
+        messagingSenderId: "205263070688"
+      },
+      editor = ace.edit("editor"),
+      timeoutId = -1;;
+
+  firebase.initializeApp(config);
+
+  function getRef() {
+    var ref = firebase.database().ref();
+    var hash = window.location.hash.replace(/#/g, '');
+    if (hash) {
+      ref = ref.child(hash);
+    } else {
+      ref = ref.push(); // generate unique location.
+      window.location = window.location + '#' + ref.key; // add it as a hash to the URL.
+    }
+
+    if (typeof console !== 'undefined') {
+      console.log('Firebase data: ', ref.toString());
+    }
+
+    return ref;
+  }
+
+  function showStatus(text, hide) {
+    hide = hide || 0;
+    clearTimeout(t_status);
+    divStatus.innerHTML = text;
+    if (hide) {
+      t_status = setTimeout(function() { divStatus.innerHTML = ""; }, hide);
+    }
+  }
+
+  window.saveimage = function(el) {
+    window.open(canvas.toDataURL("image/png"));
+  }
+
+  worker.onmessage = function(e) {
+    showStatus("done", 500);
+    if (e.data.type === "svg") {
+      var d = e.data.data.replace(/svg width="[^"]+?" height="[^"]+?"/, 'svg width="100%" height="100%"');
+      document.getElementById("review").innerHTML = d;
+      canvg(canvas, e.data.data);
+    }
+  };
+
+  editor.setTheme("ace/theme/twilight");
+  editor.getSession().setMode("ace/mode/dot");
+  editor.getSession().on("change", function(e) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(function(){
+      showStatus("rendering...");
+      worker.postMessage({"code": editor.getValue(), "type": "svg"});
+    }, 1500);
+  });
+
+  /* Init */
+  if (editor.getValue()) {
+    showStatus("rendering...");
+    worker.postMessage({"code": editor.getValue(), "type": "svg"});
+  }
+
+  //// Get Firebase Database reference.
+  var firepadRef = getRef();
+
+  var firepad = Firepad.fromACE(firepadRef, editor, {
+    defaultText: 'digraph G {\n            OK;\n}'
+  });
+})(document);
+</script>
+
+</body>
+</html>
