@@ -2,7 +2,7 @@
 
 Author: [laubstein](https://github.com/laubstein/)
 
-[DEMO](http://laubstein.github.io/Cloudviz/)
+[DEMO](http://laubstein.github.io/CloudViz/)
 
 # Thanks to
 
